@@ -39,11 +39,8 @@ import { z } from "zod";
 
 const formSchema = z.object({
 	tipoReserva: z.enum(["superior", "inferior"]),
-	email: z
-		.string({
-			required_error: "Please select an email to display.",
-		})
-		.email(),
+	tipoOcupacao: z.enum(["A2"]),
+	area: z.number(),
 });
 
 export default function Page() {
@@ -51,6 +48,8 @@ export default function Page() {
 		resolver: zodResolver(formSchema),
 		defaultValues: {
 			tipoReserva: "superior",
+			tipoOcupacao: "A2",
+			area: 100,
 		},
 	});
 
@@ -101,7 +100,7 @@ export default function Page() {
 											defaultValue={field.value}
 										>
 											<FormControl>
-												<SelectTrigger>
+												<SelectTrigger className="w-full">
 													<SelectValue placeholder="Selecione o tipo de reservatório" />
 												</SelectTrigger>
 											</FormControl>
@@ -120,16 +119,40 @@ export default function Page() {
 
 							<FormField
 								control={form.control}
-								name="tipoReserva"
+								name="tipoOcupacao"
 								render={({ field }) => (
 									<FormItem>
-										<FormLabel>Tipo de Reservatório</FormLabel>
-										<FormControl>
-											<Input placeholder="shadcn" {...field} />
-										</FormControl>
+										<FormLabel>Tipo de Ocupação</FormLabel>
+										<Select
+											onValueChange={field.onChange}
+											defaultValue={field.value}
+										>
+											<FormControl>
+												<SelectTrigger className="w-full">
+													<SelectValue placeholder="Selecione o tipo de reservatório" />
+												</SelectTrigger>
+											</FormControl>
+											<SelectContent>
+												<SelectItem value="A2">A-2 (Multifamiliar)</SelectItem>
+											</SelectContent>
+										</Select>
 										<FormDescription>
-											Qual o tipo do reservatório
+											Qual o tipo de reservatório da edificação?{" "}
 										</FormDescription>
+										<FormMessage />
+									</FormItem>
+								)}
+							/>
+
+							<FormField
+								control={form.control}
+								name="area"
+								render={({ field }) => (
+									<FormItem>
+										<FormLabel>Área da Edificação (m²)</FormLabel>
+										<FormControl>
+											<Input type="number" min={100} {...field} />
+										</FormControl>
 										<FormMessage />
 									</FormItem>
 								)}
