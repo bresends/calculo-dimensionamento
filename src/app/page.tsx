@@ -33,260 +33,42 @@ import {
 	SidebarProvider,
 	SidebarTrigger,
 } from "@/components/ui/sidebar";
+import { PecasSelector } from "@/features/hydrant-calculation/components/pecas-selector";
+import type { PecaAdicionada } from "@/features/hydrant-calculation/types";
+import {
+	defaultFormValues,
+	hydrantFormSchema,
+} from "@/features/hydrant-calculation/types/schema";
+import { calcularHidraulica } from "@/features/hydrant-calculation/utils/calculations";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
-
-// Definição das peças e seus comprimentos equivalentes
-interface Peca {
-	id: string;
-	nome: string;
-	comprimentoEquivalente: number;
-	diametros: number[]; // diâmetros compatíveis em mm
-}
-
-const PECAS: Peca[] = [
-	{
-		id: "joelho90",
-		nome: "Joelho 90°",
-		comprimentoEquivalente: 2.0,
-		diametros: [25, 32, 40, 50, 65, 80, 100],
-	},
-	{
-		id: "joelho45",
-		nome: "Joelho 45°",
-		comprimentoEquivalente: 1.0,
-		diametros: [25, 32, 40, 50, 65, 80, 100],
-	},
-	{
-		id: "te_passagem_direita",
-		nome: "Tê - Passagem Direita",
-		comprimentoEquivalente: 4.3,
-		diametros: [25, 32, 40, 50, 65, 80, 100],
-	},
-	{
-		id: "te_passagem_direta",
-		nome: "Tê - Passagem Direta",
-		comprimentoEquivalente: 1.3,
-		diametros: [25, 32, 40, 50, 65, 80, 100],
-	},
-	{
-		id: "valvula_gaveta",
-		nome: "Válvula de Gaveta",
-		comprimentoEquivalente: 0.4,
-		diametros: [25, 32, 40, 50, 65, 80, 100],
-	},
-	{
-		id: "valvula_globo",
-		nome: "Válvula de Globo",
-		comprimentoEquivalente: 15.0,
-		diametros: [25, 32, 40, 50, 65, 80, 100],
-	},
-	{
-		id: "valvula_retencao_vertical",
-		nome: "Válvula de Retenção Vertical",
-		comprimentoEquivalente: 8.1,
-		diametros: [25, 32, 40, 50, 65, 80, 100],
-	},
-	{
-		id: "entrada_borda",
-		nome: "Entrada de Borda",
-		comprimentoEquivalente: 1.9,
-		diametros: [25, 32, 40, 50, 65, 80, 100],
-	},
-];
-
-// Peça adicionada pelo usuário
-interface PecaAdicionada {
-	id: string;
-	pecaId: string;
-	quantidade: number;
-	diametro: number;
-}
-
-const formSchema = z.object({
-	tipoReserva: z.enum(["superior", "inferior"]),
-	tipoOcupacao: z.enum(["A2"]),
-	area: z.number(),
-	reserva: z.number(),
-	tipoSistema: z.enum(["1", "2"]),
-	pressaoMinMaisDesfavoravel: z.number(),
-	vazaoMinMaisDesfavoravel: z.number(),
-	diametroMangueira: z.number(),
-	diametroEsguicho: z.number(),
-	diametroTubulacao: z.number(),
-	fatorHazenWilliamsTubulacao: z.number(),
-	distanciaHidrantes: z.number(),
-	distanciaMaisDesfavoravelReserva: z.number(),
-	trechosRetilineosReservatorio: z.number(),
-});
+import type { z } from "zod";
 
 export default function Page() {
 	const [pecasAdicionadas, setPecasAdicionadas] = useState<PecaAdicionada[]>(
 		[],
 	);
-	const [novaPeca, setNovaPeca] = useState({
-		pecaId: "",
-		quantidade: 1,
-		diametro: 65,
-	});
 	const [pecasAdicionadas2, setPecasAdicionadas2] = useState<PecaAdicionada[]>(
 		[],
 	);
-	const [novaPeca2, setNovaPeca2] = useState({
-		pecaId: "",
-		quantidade: 1,
-		diametro: 65,
+
+	const form = useForm<z.infer<typeof hydrantFormSchema>>({
+		resolver: zodResolver(hydrantFormSchema),
+		defaultValues: defaultFormValues,
 	});
 
-	const form = useForm<z.infer<typeof formSchema>>({
-		resolver: zodResolver(formSchema),
-		defaultValues: {
-			tipoReserva: "superior",
-			tipoOcupacao: "A2",
-			area: 100,
-			reserva: 100,
-			pressaoMinMaisDesfavoravel: 30,
-			vazaoMinMaisDesfavoravel: 150,
-			diametroMangueira: 40,
-			diametroEsguicho: 40,
-			diametroTubulacao: 63,
-			fatorHazenWilliamsTubulacao: 120,
-			distanciaHidrantes: 0,
-			distanciaMaisDesfavoravelReserva: 0,
-			trechosRetilineosReservatorio: 0,
-		},
-	});
+	// Get form values to pass to calculations
+	const formValues = form.watch();
 
-	const adicionarPeca = () => {
-		if (novaPeca.pecaId) {
-			setPecasAdicionadas([
-				...pecasAdicionadas,
-				{
-					id: Math.random().toString(36).substr(2, 9),
-					...novaPeca,
-				},
-			]);
-			setNovaPeca({
-				pecaId: "",
-				quantidade: 1,
-				diametro: 65,
-			});
-		}
-	};
+	// Calculate all hydraulic values
+	const calculations = calcularHidraulica(
+		formValues,
+		pecasAdicionadas,
+		pecasAdicionadas2,
+	);
 
-	const adicionarPeca2 = () => {
-		if (novaPeca2.pecaId) {
-			setPecasAdicionadas2([
-				...pecasAdicionadas2,
-				{
-					id: Math.random().toString(36).substr(2, 9),
-					...novaPeca2,
-				},
-			]);
-			setNovaPeca2({
-				pecaId: "",
-				quantidade: 1,
-				diametro: 65,
-			});
-		}
-	};
-
-	const removerPeca = (id: string) => {
-		setPecasAdicionadas(pecasAdicionadas.filter((p) => p.id !== id));
-	};
-
-	const removerPeca2 = (id: string) => {
-		setPecasAdicionadas2(pecasAdicionadas2.filter((p) => p.id !== id));
-	};
-
-	const calcularComprimentoEquivalenteTotal = () => {
-		return pecasAdicionadas.reduce((total, peca) => {
-			const pecaBase = PECAS.find((p) => p.id === peca.pecaId);
-			return total + (pecaBase?.comprimentoEquivalente || 0) * peca.quantidade;
-		}, 0);
-	};
-	const calcularComprimentoEquivalenteTotal2 = () => {
-		return pecasAdicionadas2.reduce((total, peca) => {
-			const pecaBase = PECAS.find((p) => p.id === peca.pecaId);
-			return total + (pecaBase?.comprimentoEquivalente || 0) * peca.quantidade;
-		}, 0);
-	};
-
-	const DIAMETRO_INTERNO_MANGUEIRA = form.watch("diametroMangueira") - 2;
-
-	const VAZAO_M3_SEGUNDO = form.watch("vazaoMinMaisDesfavoravel") / 60000;
-
-	const VELOCIDADE_MAIS_DESFAVORAVEL =
-		VAZAO_M3_SEGUNDO / (0.785 * (DIAMETRO_INTERNO_MANGUEIRA * 10 ** -3) ** 2);
-
-	const PERDA_CARGA_VALVULA_MAIS_DESFAVORAVEL =
-		(5 * VELOCIDADE_MAIS_DESFAVORAVEL ** 2) / 19.6;
-
-	const PRESSAO_HIDRANTE_MAIS_DESFAVORAVEL =
-		form.watch("pressaoMinMaisDesfavoravel") +
-		PERDA_CARGA_VALVULA_MAIS_DESFAVORAVEL;
-
-	const FATOR_VAZAO_K_MAIS_DESFAVORAVEL =
-		form.watch("vazaoMinMaisDesfavoravel") /
-		Math.sqrt(PRESSAO_HIDRANTE_MAIS_DESFAVORAVEL);
-
-	const COMPRIMENTO_EQUIVALENTE =
-		Number(form.watch("distanciaHidrantes")) +
-		calcularComprimentoEquivalenteTotal();
-
-	const PERDA_CARGA_ATRITO =
-		10.65 *
-		VAZAO_M3_SEGUNDO ** 1.85 *
-		form.watch("fatorHazenWilliamsTubulacao") ** -1.85 *
-		(form.watch("diametroTubulacao") * 10 ** -3) ** -4.87 *
-		COMPRIMENTO_EQUIVALENTE;
-
-	const PRESSAO_SEGUNDO_MAIS_DESFAVORAVEL =
-		PRESSAO_HIDRANTE_MAIS_DESFAVORAVEL +
-		Number(form.watch("distanciaHidrantes")) -
-		PERDA_CARGA_ATRITO;
-
-	const VAZAO_SEGUNDO_MAIS_DESFAVORAVEL =
-		FATOR_VAZAO_K_MAIS_DESFAVORAVEL *
-		Math.sqrt(PRESSAO_SEGUNDO_MAIS_DESFAVORAVEL);
-
-	const VAZAO_TOTAL =
-		form.watch("vazaoMinMaisDesfavoravel") + VAZAO_SEGUNDO_MAIS_DESFAVORAVEL;
-
-	const VAZAO_TOTAL_M3 = VAZAO_TOTAL / 60000;
-
-	const VELOCIDADE_ACIMA_MAIS_DESFAVORAVEL =
-		VAZAO_TOTAL_M3 /
-		(0.785 * (Number(form.watch("diametroTubulacao")) * 10 ** -3) ** 2);
-
-	const COMPRIMENTO_EQUIVALENTE_ACIMA =
-		Number(form.watch("trechosRetilineosReservatorio")) +
-		calcularComprimentoEquivalenteTotal2();
-
-	const PERDA_CARGA_ATRITO_ACIMA =
-		10.65 *
-		VAZAO_TOTAL_M3 ** 1.85 *
-		form.watch("fatorHazenWilliamsTubulacao") ** -1.85 *
-		(form.watch("diametroTubulacao") * 10 ** -3) ** -4.87 *
-		COMPRIMENTO_EQUIVALENTE_ACIMA;
-
-	const ALTURA_MANOMETRICA_TOTAL =
-		PRESSAO_HIDRANTE_MAIS_DESFAVORAVEL +
-		PERDA_CARGA_ATRITO_ACIMA -
-		Number(form.watch("distanciaMaisDesfavoravelReserva"));
-
-	console.log({
-		PRESSAO_HIDRANTE_MAIS_DESFAVORAVEL,
-		PERDA_CARGA_ATRITO_ACIMA,
-		DISTANCIA_MAIS_DESFAVORAVEL: Number(
-			form.watch("distanciaMaisDesfavoravelReserva"),
-		),
-	});
-
-	function onSubmit(values: z.infer<typeof formSchema>) {
+	function onSubmit(values: z.infer<typeof hydrantFormSchema>) {
 		console.log(values);
 	}
 
@@ -571,13 +353,23 @@ export default function Page() {
 										<p>
 											Precisamos encontrar a velocidade que é dada por v = Q / A
 										</p>
-										<p>v = {VELOCIDADE_MAIS_DESFAVORAVEL.toFixed(2)} m/s</p>
 										<p>
-											hval ={PERDA_CARGA_VALVULA_MAIS_DESFAVORAVEL.toFixed(2)}
+											v = {calculations.VELOCIDADE_MAIS_DESFAVORAVEL.toFixed(2)}{" "}
+											m/s
+										</p>
+										<p>
+											hval =
+											{calculations.PERDA_CARGA_VALVULA_MAIS_DESFAVORAVEL.toFixed(
+												2,
+											)}
 											mca
 										</p>
 										<p>
-											Pch = {PRESSAO_HIDRANTE_MAIS_DESFAVORAVEL.toFixed(2)} mca
+											Pch ={" "}
+											{calculations.PRESSAO_HIDRANTE_MAIS_DESFAVORAVEL.toFixed(
+												2,
+											)}{" "}
+											mca
 										</p>
 									</li>
 
@@ -588,7 +380,8 @@ export default function Page() {
 										</p>
 										<p>K = Qdesf / √Pdesf</p>
 										<p>
-											K = {FATOR_VAZAO_K_MAIS_DESFAVORAVEL.toFixed(2)}{" "}
+											K ={" "}
+											{calculations.FATOR_VAZAO_K_MAIS_DESFAVORAVEL.toFixed(2)}{" "}
 											l/min/mca½
 										</p>
 									</li>
@@ -628,131 +421,23 @@ export default function Page() {
 											Equivalente Total (I){" "}
 										</p>
 
-										<div className="space-y-4 border p-4 rounded-lg">
-											<h3 className="font-semibold">
-												Adicionar Peças para Cálculo do Comprimento Equivalente
-											</h3>
-											<div className="flex gap-4">
-												<Select
-													value={novaPeca.pecaId}
-													onValueChange={(valor) =>
-														setNovaPeca({ ...novaPeca, pecaId: valor })
-													}
-												>
-													<SelectTrigger className="w-[200px]">
-														<SelectValue placeholder="Selecione uma peça" />
-													</SelectTrigger>
-													<SelectContent>
-														{PECAS.map((peca) => (
-															<SelectItem key={peca.id} value={peca.id}>
-																{peca.nome}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
-
-												<Select
-													value={String(novaPeca.diametro)}
-													onValueChange={(valor) =>
-														setNovaPeca({
-															...novaPeca,
-															diametro: Number(valor),
-														})
-													}
-												>
-													<SelectTrigger className="w-[200px]">
-														<SelectValue placeholder="Selecione o diâmetro" />
-													</SelectTrigger>
-													<SelectContent>
-														{PECAS.find(
-															(p) => p.id === novaPeca.pecaId,
-														)?.diametros.map((diametro) => (
-															<SelectItem
-																key={diametro}
-																value={String(diametro)}
-															>
-																{diametro} mm
-															</SelectItem>
-														)) || []}
-													</SelectContent>
-												</Select>
-
-												<Input
-													type="number"
-													min={1}
-													value={novaPeca.quantidade}
-													onChange={(e) =>
-														setNovaPeca({
-															...novaPeca,
-															quantidade: Number.parseInt(e.target.value) || 1,
-														})
-													}
-													className="w-[100px]"
-													placeholder="Qtd"
-												/>
-
-												<Button
-													type="button"
-													onClick={adicionarPeca}
-													disabled={!novaPeca.pecaId}
-												>
-													<Plus className="w-4 h-4 mr-2" />
-													Adicionar
-												</Button>
-											</div>
-
-											<div className="space-y-2">
-												{pecasAdicionadas.map((peca) => {
-													const pecaBase = PECAS.find(
-														(p) => p.id === peca.pecaId,
-													);
-													return (
-														<div
-															key={peca.id}
-															className="flex items-center justify-between bg-muted p-2 rounded"
-														>
-															<span>
-																{pecaBase?.nome} - {peca.diametro}mm (x
-																{peca.quantidade})
-															</span>
-															<div className="flex items-center gap-4">
-																<span>
-																	{(
-																		(pecaBase?.comprimentoEquivalente || 0) *
-																		peca.quantidade
-																	).toFixed(2)}
-																	m
-																</span>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	onClick={() => removerPeca(peca.id)}
-																>
-																	<Trash2 className="w-4 h-4" />
-																</Button>
-															</div>
-														</div>
-													);
-												})}
-
-												{pecasAdicionadas.length > 0 && (
-													<div className="flex justify-between items-center font-semibold pt-2 border-t">
-														<span>Comprimento Equivalente Total:</span>
-														<span>
-															{calcularComprimentoEquivalenteTotal().toFixed(2)}
-															m
-														</span>
-													</div>
-												)}
-											</div>
-										</div>
-
-										<p>Comprimento Equivalente = {COMPRIMENTO_EQUIVALENTE}</p>
-
-										<p>h = {PERDA_CARGA_ATRITO.toFixed(2)} mca</p>
+										<PecasSelector
+											pecasAdicionadas={pecasAdicionadas}
+											setPecasAdicionadas={setPecasAdicionadas}
+										/>
 
 										<p>
-											P2desf = {PRESSAO_SEGUNDO_MAIS_DESFAVORAVEL.toFixed(2)}{" "}
+											Comprimento Equivalente ={" "}
+											{calculations.COMPRIMENTO_EQUIVALENTE}
+										</p>
+
+										<p>h = {calculations.PERDA_CARGA_ATRITO.toFixed(2)} mca</p>
+
+										<p>
+											P2desf ={" "}
+											{calculations.PRESSAO_SEGUNDO_MAIS_DESFAVORAVEL.toFixed(
+												2,
+											)}{" "}
 											mca
 										</p>
 									</li>
@@ -764,9 +449,11 @@ export default function Page() {
 										</p>
 										<p>Q2desf = K * √P2desf</p>
 										<p>
-											Q = {VAZAO_SEGUNDO_MAIS_DESFAVORAVEL.toFixed(2)} l/min
+											Q ={" "}
+											{calculations.VAZAO_SEGUNDO_MAIS_DESFAVORAVEL.toFixed(2)}{" "}
+											l/min
 										</p>
-										<p>Qtotal = {VAZAO_TOTAL.toFixed(2)} l/min</p>
+										<p>Qtotal = {calculations.VAZAO_TOTAL.toFixed(2)} l/min</p>
 									</li>
 								</ol>
 							</div>
@@ -810,8 +497,12 @@ export default function Page() {
 										</p>
 										<p>V = Qtotal / Area</p>
 										<p>
-											V = {VELOCIDADE_ACIMA_MAIS_DESFAVORAVEL.toFixed(2)} m/s
-											(Deve ser menor que 5 m/s no recalque e 3 m/s na sucção)
+											V ={" "}
+											{calculations.VELOCIDADE_ACIMA_MAIS_DESFAVORAVEL.toFixed(
+												2,
+											)}{" "}
+											m/s (Deve ser menor que 5 m/s no recalque e 3 m/s na
+											sucção)
 										</p>
 									</li>
 
@@ -842,137 +533,24 @@ export default function Page() {
 											Equivalente Total (I){" "}
 										</p>
 
-										<div className="space-y-4 border p-4 rounded-lg">
-											<h3 className="font-semibold">
-												Adicionar Peças para Cálculo do Comprimento Equivalente
-											</h3>
-											<div className="flex gap-4">
-												<Select
-													value={novaPeca2.pecaId}
-													onValueChange={(valor) =>
-														setNovaPeca2({ ...novaPeca2, pecaId: valor })
-													}
-												>
-													<SelectTrigger className="w-[200px]">
-														<SelectValue placeholder="Selecione uma peça" />
-													</SelectTrigger>
-													<SelectContent>
-														{PECAS.map((peca) => (
-															<SelectItem key={peca.id} value={peca.id}>
-																{peca.nome}
-															</SelectItem>
-														))}
-													</SelectContent>
-												</Select>
-
-												<Select
-													value={String(novaPeca2.diametro)}
-													onValueChange={(valor) =>
-														setNovaPeca2({
-															...novaPeca2,
-															diametro: Number(valor),
-														})
-													}
-												>
-													<SelectTrigger className="w-[200px]">
-														<SelectValue placeholder="Selecione o diâmetro" />
-													</SelectTrigger>
-													<SelectContent>
-														{PECAS.find(
-															(p) => p.id === novaPeca2.pecaId,
-														)?.diametros.map((diametro) => (
-															<SelectItem
-																key={diametro}
-																value={String(diametro)}
-															>
-																{diametro} mm
-															</SelectItem>
-														)) || []}
-													</SelectContent>
-												</Select>
-
-												<Input
-													type="number"
-													min={1}
-													value={novaPeca2.quantidade}
-													onChange={(e) =>
-														setNovaPeca2({
-															...novaPeca2,
-															quantidade: Number.parseInt(e.target.value) || 1,
-														})
-													}
-													className="w-[100px]"
-													placeholder="Qtd"
-												/>
-
-												<Button
-													type="button"
-													onClick={adicionarPeca2}
-													disabled={!novaPeca2.pecaId}
-												>
-													<Plus className="w-4 h-4 mr-2" />
-													Adicionar
-												</Button>
-											</div>
-
-											<div className="space-y-2">
-												{pecasAdicionadas2.map((peca) => {
-													const pecaBase = PECAS.find(
-														(p) => p.id === peca.pecaId,
-													);
-													return (
-														<div
-															key={peca.id}
-															className="flex items-center justify-between bg-muted p-2 rounded"
-														>
-															<span>
-																{pecaBase?.nome} - {peca.diametro}mm (x
-																{peca.quantidade})
-															</span>
-															<div className="flex items-center gap-4">
-																<span>
-																	{(
-																		(pecaBase?.comprimentoEquivalente || 0) *
-																		peca.quantidade
-																	).toFixed(2)}
-																	m
-																</span>
-																<Button
-																	variant="ghost"
-																	size="icon"
-																	onClick={() => removerPeca2(peca.id)}
-																>
-																	<Trash2 className="w-4 h-4" />
-																</Button>
-															</div>
-														</div>
-													);
-												})}
-
-												{pecasAdicionadas2.length > 0 && (
-													<div className="flex justify-between items-center font-semibold pt-2 border-t">
-														<span>Comprimento Equivalente Total:</span>
-														<span>
-															{calcularComprimentoEquivalenteTotal2().toFixed(
-																2,
-															)}
-															m
-														</span>
-													</div>
-												)}
-											</div>
-										</div>
+										<PecasSelector
+											pecasAdicionadas={pecasAdicionadas2}
+											setPecasAdicionadas={setPecasAdicionadas2}
+											title="Adicionar Peças para Cálculo do Comprimento Equivalente até o Reservatório"
+										/>
 
 										<p>
 											Comprimento Equivalente ={" "}
-											{COMPRIMENTO_EQUIVALENTE_ACIMA.toFixed(2)} m
+											{calculations.COMPRIMENTO_EQUIVALENTE_ACIMA.toFixed(2)} m
 										</p>
 
-										<p>h = {PERDA_CARGA_ATRITO_ACIMA.toFixed(2)} mca</p>
+										<p>
+											h = {calculations.PERDA_CARGA_ATRITO_ACIMA.toFixed(2)} mca
+										</p>
 
 										<p>
 											Altura Manométrica Total ={" "}
-											{ALTURA_MANOMETRICA_TOTAL.toFixed(2)} mca
+											{calculations.ALTURA_MANOMETRICA_TOTAL.toFixed(2)} mca
 										</p>
 									</li>
 
@@ -980,10 +558,10 @@ export default function Page() {
 										<p className="font-bold">
 											Resultado Final: Especificação da bomba
 										</p>
-										<p>Qtotal = {VAZAO_TOTAL.toFixed(2)} l/min</p>
+										<p>Qtotal = {calculations.VAZAO_TOTAL.toFixed(2)} l/min</p>
 										<p>
 											Altura Manométrica Total ={" "}
-											{ALTURA_MANOMETRICA_TOTAL.toFixed(2)} mca
+											{calculations.ALTURA_MANOMETRICA_TOTAL.toFixed(2)} mca
 										</p>
 									</li>
 								</ol>
