@@ -61,9 +61,15 @@ const PECAS: Peca[] = [
 		diametros: [25, 32, 40, 50, 65, 80, 100],
 	},
 	{
-		id: "te_passagem",
-		nome: "Tê - Passagem Direta",
+		id: "te_passagem_direita",
+		nome: "Tê - Passagem Direita",
 		comprimentoEquivalente: 4.3,
+		diametros: [25, 32, 40, 50, 65, 80, 100],
+	},
+	{
+		id: "te_passagem_direta",
+		nome: "Tê - Passagem Direta",
+		comprimentoEquivalente: 1.3,
 		diametros: [25, 32, 40, 50, 65, 80, 100],
 	},
 	{
@@ -79,15 +85,15 @@ const PECAS: Peca[] = [
 		diametros: [25, 32, 40, 50, 65, 80, 100],
 	},
 	{
-		id: "valvula_retencao",
-		nome: "Válvula de Retenção",
-		comprimentoEquivalente: 4.0,
+		id: "valvula_retencao_vertical",
+		nome: "Válvula de Retenção Vertical",
+		comprimentoEquivalente: 8.1,
 		diametros: [25, 32, 40, 50, 65, 80, 100],
 	},
 	{
-		id: "reducao",
-		nome: "Redução",
-		comprimentoEquivalente: 1.0,
+		id: "entrada_borda",
+		nome: "Entrada de Borda",
+		comprimentoEquivalente: 1.9,
 		diametros: [25, 32, 40, 50, 65, 80, 100],
 	},
 ];
@@ -113,7 +119,8 @@ const formSchema = z.object({
 	diametroTubulacao: z.number(),
 	fatorHazenWilliamsTubulacao: z.number(),
 	distanciaHidrantes: z.number(),
-	distanciaMaisFavoravelReserva: z.number(),
+	distanciaMaisDesfavoravelReserva: z.number(),
+	trechosRetilineosReservatorio: z.number(),
 });
 
 export default function Page() {
@@ -121,6 +128,14 @@ export default function Page() {
 		[],
 	);
 	const [novaPeca, setNovaPeca] = useState({
+		pecaId: "",
+		quantidade: 1,
+		diametro: 65,
+	});
+	const [pecasAdicionadas2, setPecasAdicionadas2] = useState<PecaAdicionada[]>(
+		[],
+	);
+	const [novaPeca2, setNovaPeca2] = useState({
 		pecaId: "",
 		quantidade: 1,
 		diametro: 65,
@@ -140,7 +155,8 @@ export default function Page() {
 			diametroTubulacao: 63,
 			fatorHazenWilliamsTubulacao: 120,
 			distanciaHidrantes: 0,
-			distanciaMaisFavoravelReserva: 0,
+			distanciaMaisDesfavoravelReserva: 0,
+			trechosRetilineosReservatorio: 0,
 		},
 	});
 
@@ -161,12 +177,39 @@ export default function Page() {
 		}
 	};
 
+	const adicionarPeca2 = () => {
+		if (novaPeca2.pecaId) {
+			setPecasAdicionadas2([
+				...pecasAdicionadas2,
+				{
+					id: Math.random().toString(36).substr(2, 9),
+					...novaPeca2,
+				},
+			]);
+			setNovaPeca2({
+				pecaId: "",
+				quantidade: 1,
+				diametro: 65,
+			});
+		}
+	};
+
 	const removerPeca = (id: string) => {
 		setPecasAdicionadas(pecasAdicionadas.filter((p) => p.id !== id));
 	};
 
+	const removerPeca2 = (id: string) => {
+		setPecasAdicionadas2(pecasAdicionadas2.filter((p) => p.id !== id));
+	};
+
 	const calcularComprimentoEquivalenteTotal = () => {
 		return pecasAdicionadas.reduce((total, peca) => {
+			const pecaBase = PECAS.find((p) => p.id === peca.pecaId);
+			return total + (pecaBase?.comprimentoEquivalente || 0) * peca.quantidade;
+		}, 0);
+	};
+	const calcularComprimentoEquivalenteTotal2 = () => {
+		return pecasAdicionadas2.reduce((total, peca) => {
 			const pecaBase = PECAS.find((p) => p.id === peca.pecaId);
 			return total + (pecaBase?.comprimentoEquivalente || 0) * peca.quantidade;
 		}, 0);
@@ -213,10 +256,35 @@ export default function Page() {
 	const VAZAO_TOTAL =
 		form.watch("vazaoMinMaisDesfavoravel") + VAZAO_SEGUNDO_MAIS_DESFAVORAVEL;
 
+	const VAZAO_TOTAL_M3 = VAZAO_TOTAL / 60000;
+
 	const VELOCIDADE_ACIMA_MAIS_DESFAVORAVEL =
-		VAZAO_TOTAL /
-		60000 /
+		VAZAO_TOTAL_M3 /
 		(0.785 * (Number(form.watch("diametroTubulacao")) * 10 ** -3) ** 2);
+
+	const COMPRIMENTO_EQUIVALENTE_ACIMA =
+		Number(form.watch("trechosRetilineosReservatorio")) +
+		calcularComprimentoEquivalenteTotal2();
+
+	const PERDA_CARGA_ATRITO_ACIMA =
+		10.65 *
+		VAZAO_TOTAL_M3 ** 1.85 *
+		form.watch("fatorHazenWilliamsTubulacao") ** -1.85 *
+		(form.watch("diametroTubulacao") * 10 ** -3) ** -4.87 *
+		COMPRIMENTO_EQUIVALENTE_ACIMA;
+
+	const ALTURA_MANOMETRICA_TOTAL =
+		PRESSAO_HIDRANTE_MAIS_DESFAVORAVEL +
+		PERDA_CARGA_ATRITO_ACIMA -
+		Number(form.watch("distanciaMaisDesfavoravelReserva"));
+
+	console.log({
+		PRESSAO_HIDRANTE_MAIS_DESFAVORAVEL,
+		PERDA_CARGA_ATRITO_ACIMA,
+		DISTANCIA_MAIS_DESFAVORAVEL: Number(
+			form.watch("distanciaMaisDesfavoravelReserva"),
+		),
+	});
 
 	function onSubmit(values: z.infer<typeof formSchema>) {
 		console.log(values);
@@ -713,13 +781,13 @@ export default function Page() {
 											Usamos a distância sempre do barrilete mais distante.
 										</p>
 										<p>
-											ht = Pdesf + Perda de Charga do Magueira (hman) - Perda de
-											Charga do Magueira (hman)
+											ht = Pdesf + Perda pelo atrito (hdesf) - Perda pelo
+											desnível (h)
 										</p>
 
 										<FormField
 											control={form.control}
-											name="distanciaMaisFavoravelReserva"
+											name="distanciaMaisDesfavoravelReserva"
 											render={({ field }) => (
 												<FormItem>
 													<FormLabel>
@@ -748,22 +816,14 @@ export default function Page() {
 									</li>
 
 									<li className="space-y-2">
-										<p className="font-bold">
-											Calculando a Perda de carga do Hidrante mais desfavorável
-											até o reservatório.
-										</p>
-										<p>
-											P2desf = Pdesf + Perda de Carga pelo desnível no trecho
-											(hd) - Perda de Carga por atrito (h)
-										</p>
-
 										<FormField
 											control={form.control}
-											name="distanciaHidrantes"
+											name="trechosRetilineosReservatorio"
 											render={({ field }) => (
 												<FormItem>
 													<FormLabel>
-														Distâncias entre os hidrantes mais desfavoráveis (m)
+														Somatória dos trechos retilíneos até o reservatório
+														(m)
 													</FormLabel>
 													<FormControl>
 														<Input type="number" min={0} {...field} />
@@ -788,9 +848,9 @@ export default function Page() {
 											</h3>
 											<div className="flex gap-4">
 												<Select
-													value={novaPeca.pecaId}
+													value={novaPeca2.pecaId}
 													onValueChange={(valor) =>
-														setNovaPeca({ ...novaPeca, pecaId: valor })
+														setNovaPeca2({ ...novaPeca2, pecaId: valor })
 													}
 												>
 													<SelectTrigger className="w-[200px]">
@@ -806,10 +866,10 @@ export default function Page() {
 												</Select>
 
 												<Select
-													value={String(novaPeca.diametro)}
+													value={String(novaPeca2.diametro)}
 													onValueChange={(valor) =>
-														setNovaPeca({
-															...novaPeca,
+														setNovaPeca2({
+															...novaPeca2,
 															diametro: Number(valor),
 														})
 													}
@@ -819,7 +879,7 @@ export default function Page() {
 													</SelectTrigger>
 													<SelectContent>
 														{PECAS.find(
-															(p) => p.id === novaPeca.pecaId,
+															(p) => p.id === novaPeca2.pecaId,
 														)?.diametros.map((diametro) => (
 															<SelectItem
 																key={diametro}
@@ -834,10 +894,10 @@ export default function Page() {
 												<Input
 													type="number"
 													min={1}
-													value={novaPeca.quantidade}
+													value={novaPeca2.quantidade}
 													onChange={(e) =>
-														setNovaPeca({
-															...novaPeca,
+														setNovaPeca2({
+															...novaPeca2,
 															quantidade: Number.parseInt(e.target.value) || 1,
 														})
 													}
@@ -847,8 +907,8 @@ export default function Page() {
 
 												<Button
 													type="button"
-													onClick={adicionarPeca}
-													disabled={!novaPeca.pecaId}
+													onClick={adicionarPeca2}
+													disabled={!novaPeca2.pecaId}
 												>
 													<Plus className="w-4 h-4 mr-2" />
 													Adicionar
@@ -856,7 +916,7 @@ export default function Page() {
 											</div>
 
 											<div className="space-y-2">
-												{pecasAdicionadas.map((peca) => {
+												{pecasAdicionadas2.map((peca) => {
 													const pecaBase = PECAS.find(
 														(p) => p.id === peca.pecaId,
 													);
@@ -880,7 +940,7 @@ export default function Page() {
 																<Button
 																	variant="ghost"
 																	size="icon"
-																	onClick={() => removerPeca(peca.id)}
+																	onClick={() => removerPeca2(peca.id)}
 																>
 																	<Trash2 className="w-4 h-4" />
 																</Button>
@@ -889,11 +949,13 @@ export default function Page() {
 													);
 												})}
 
-												{pecasAdicionadas.length > 0 && (
+												{pecasAdicionadas2.length > 0 && (
 													<div className="flex justify-between items-center font-semibold pt-2 border-t">
 														<span>Comprimento Equivalente Total:</span>
 														<span>
-															{calcularComprimentoEquivalenteTotal().toFixed(2)}
+															{calcularComprimentoEquivalenteTotal2().toFixed(
+																2,
+															)}
 															m
 														</span>
 													</div>
@@ -901,26 +963,28 @@ export default function Page() {
 											</div>
 										</div>
 
-										<p>Comprimento Equivalente = {COMPRIMENTO_EQUIVALENTE}</p>
+										<p>
+											Comprimento Equivalente ={" "}
+											{COMPRIMENTO_EQUIVALENTE_ACIMA.toFixed(2)} m
+										</p>
 
-										<p>h = {PERDA_CARGA_ATRITO.toFixed(2)} mca</p>
+										<p>h = {PERDA_CARGA_ATRITO_ACIMA.toFixed(2)} mca</p>
 
 										<p>
-											P2desf = {PRESSAO_SEGUNDO_MAIS_DESFAVORAVEL.toFixed(2)}{" "}
-											mca
+											Altura Manométrica Total ={" "}
+											{ALTURA_MANOMETRICA_TOTAL.toFixed(2)} mca
 										</p>
 									</li>
 
 									<li className="space-y-2">
 										<p className="font-bold">
-											Calculando a vazão (K) para o Segundo Hidrante mais
-											desfavorável usando o fator de vazão.
-										</p>
-										<p>Q2desf = K * √P2desf</p>
-										<p>
-											Q = {VAZAO_SEGUNDO_MAIS_DESFAVORAVEL.toFixed(2)} l/min
+											Resultado Final: Especificação da bomba
 										</p>
 										<p>Qtotal = {VAZAO_TOTAL.toFixed(2)} l/min</p>
+										<p>
+											Altura Manométrica Total ={" "}
+											{ALTURA_MANOMETRICA_TOTAL.toFixed(2)} mca
+										</p>
 									</li>
 								</ol>
 							</div>
